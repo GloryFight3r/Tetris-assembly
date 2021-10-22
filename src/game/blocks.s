@@ -1,5 +1,7 @@
+#TODO add blocks 6 and 7
 .data
-blocks: .byte 0 # light blue
+blocks: 
+	.byte 0 # light blue
 	.byte 0
 	.byte 0
 	.byte 120

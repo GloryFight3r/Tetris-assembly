@@ -69,8 +69,8 @@ rotateBlock:
 	movq %rsp, %rbp
 
 	movq %rdi, %rax
-	shrq $7, %rax # makes rax only equal to the highest byte of rdi
-	shlq $7, %rax
+	shrq $56, %rax # makes rax only equal to the highest byte of rdi
+	shlq $56, %rax
 
 	movq $0, %rsi # sets i,j to 0
 	movq $0, %rcx
@@ -109,7 +109,81 @@ no_block:
 
 	movq $0, %rcx
 	incq %rsi
+	jmp rotateBlock_loop
 rotateBlock_end:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+/** Checks whether the current x, y and block is viable
+*@param r13, r14, r15
+*@ret returns 0/1 in rax
+*/ 
+isViable:
+	pushq %rbp
+	movq %rsp, %rbp
+
+	movq $0, %rdi
+	movq $0, %rsi
+	movq %r15, %r8
+	movq %r8, %r9
+	shrq $56, %r9 # holds the current color in the lowest byte of r9
+
+isViable_loop:
+	cmp $7, %rdi
+	je isViable_loop_end
+	
+	# check if the current cell is a one
+	movq $1, %rdx
+	andq %r8, %rdx
+	cmp $1, %rdx
+	jne nextBlock # current cell is not a one
+
+# calculates the adress where I have to put the block
+	movq %rdi, %rax
+	addq %r13, %rax # adds the x of our current position
+	movq $tetris_width, %rbx
+	mulq %rbx
+	addq %rsi, %rax
+	addq %r14, %rax # adds the y of our current position
+	#movq $440, %rax
+	
+	cmp $400, %rax
+	jle inBound
+	
+	movq $0, %rax
+	jmp after_isViable
+
+inBound:
+	movq $tetris_window, %rbx
+	addq %rax, %rbx # rbx holds the adress in which I have to place the current cell
+
+	movzb (%rbx), %rbx
+
+	cmp $0, %rbx
+	je nextBlock
+
+	# both are ones so we return
+
+	movq $0, %rax
+	jmp after_isViable	
+
+nextBlock:
+	shrq $1, %r8 # removes the lowest bit
+
+	incq %rsi
+	cmp $8, %rsi
+	jne isViable_loop
+
+	incq %rdi
+	movq $0, %rsi
+
+	jmp isViable_loop
+
+isViable_loop_end:
+	movq $1, %rax
+
+after_isViable:
 
 	movq %rbp, %rsp
 	popq %rbp
@@ -121,59 +195,14 @@ rotateBlock_end:
 dropOne:
 	pushq %rbp
 	movq %rsp, %rbp
-
-	pushq %r8
-	pushq %r9
-
-	movq $0, %rdi
-	movq $0, %rdx
-	movq %r15, %r8 # current tetris block
-
-dropOne_loop:
-	cmp $7, %rdi
-	je dropOne_loop_end
-
-	movq $1, %rsi
-	andq %r8, %rsi
-
-	jne getNextCell # if current block is zero
-# current block is one and we have to check whether adding one to %r13 would make the number collide/more than 20
-	movq %r13, %rax
-	addq $1, %rax # simulate adding one to r13
-	addq %rdi, %rax
-	movq $20, %r9
-	mulq %r9
-	addq %r14, %rax
-	addq %rsi, %rax
 	
-	movq $tetris_window, %r8
-	addq %rax, %r8
-	movq (%r8), %r8
-	cmp $1, %r8
-	je cantPlace
-	cmp $200, %r8
-	jge cantPlace
+	incq %r13
+	call isViable
 
-getNextCell:
-	shrq $1, %r8
-
-	incq %rdx
-	cmp $8, %rdx
-	jne dropOne_loop
-	movq $0, %rdx
-	incq %rdi
-
-dropOne_loop_end:
-	movq $1, %rax # we can dropDown the block
-	incq %r13 # we can drop down the current block
-	jmp afterDropOne
-
-cantPlace:
-	movq $0, %rax
-
-afterDropOne:
-	popq %r9
-	popq %r8
+	cmp $1, %rax
+	je can_drop
+	decq %r13
+can_drop:
 
 	movq %rbp, %rsp
 	popq %rbp
@@ -185,6 +214,14 @@ afterDropOne:
 moveDirection:
 	pushq %rbp
 	movq %rsp, %rbp
+
+	addq %rdi, %r14
+	call isViable
+
+	cmp $1, %rax
+	je can_move
+	subq %rdi, %r14
+can_move:
 
 	movq %rbp, %rsp
 	popq %rbp
@@ -212,6 +249,7 @@ drawLoopOne:
 	movq $tetris_width, %rbx
 	mulq %rbx
 	addq %rsi, %rax
+
 	movq $tetris_window, %rdx
 	addq %rax, %rdx
 	movq %rdx, %rcx # holds the adress of the current block
@@ -223,12 +261,16 @@ drawLoopOne:
 	mulq %rbx
 	addq $36, %rax
 	addq %rsi, %rax
+
 	movq $basic_screen, %rdx
 	addq %rax, %rdx
 
 	movzb (%rcx), %rcx
 	cmp $0, %rcx
-	je anotherBlockDraw
+	jne anotherBlockDraw
+	movq $0x80, %rcx # an empty block
+
+placeCurrent:
 	movb %cl, (%rdx)
 # increments rdi if rsi is tetris_width
 anotherBlockDraw:
@@ -240,8 +282,53 @@ anotherBlockDraw:
 	jmp drawLoopOne
 drawLoopOne_end:
 
+# now I have to draw the current block
 	
+	movq $0, %rdi
+	movq $0, %rsi
+	movq %r15, %r8
+	movq %r8, %r9
+	shrq $56, %r9 # holds the current color in the lowest byte of r9
+	movq $0, %r11
+drawBlock:
+	cmp $7, %rdi
+	je drawBlock_end
+	
+# calculates the adress where I have to put the block
+	movq $5, %rax
+	addq %rdi, %rax
+	addq %r13, %rax # adds the x of our current position
+	movq $80, %rbx
+	mulq %rbx
+	addq %rsi, %rax
+	addq %r14, %rax # adds the y of our current position
+	addq $36, %rax
+	#movq $440, %rax
+	movq $basic_screen, %rbx
+	addq %rax, %rbx # rbx holds the adress in which I have to place the current cell
 
+	# check if the current cell is a one
+	movq $1, %rdx
+	andq %r8, %rdx
+	cmp $1, %rdx
+	jne getNextBlock # current cell is not a one
+	incq %r11
+#  now it is
+	movb %r9b, (%rbx) # moves the color to the adress
+	
+getNextBlock:
+	shrq $1, %r8 # removes the lowest bit
+
+	incq %rsi
+	cmp $8, %rsi
+	jne drawBlock
+
+	incq %rdi
+	movq $0, %rsi
+
+	jmp drawBlock
+
+drawBlock_end:
 	movq %rbp, %rsp
 	popq %rbp
 	ret
@@ -252,8 +339,32 @@ drawLoopOne_end:
 updateGameState:
 	pushq %rbp
 	movq %rsp, %rbp
-
 	
+	call readKeyCode
+	cmp $0x1e, %al
+
+	jne not_left_arrow
+	movq $-1, %rdi
+	call moveDirection
+
+not_left_arrow:
+	cmp $0x20, %al
+
+	jne not_right_arrow
+	movq $1, %rdi
+	call moveDirection
+
+not_right_arrow:
+	movq current_tick, %rax
+	cmp $ticks, %rax
+	jl skip_drop
+
+	mov $-1, current_tick
+	call dropOne
+
+skip_drop:
+	incq %rax
+	movq %rax, current_tick
 
 	movq %rbp, %rsp
 	popq %rbp
@@ -274,24 +385,34 @@ start_dropping:
 	movq $0, %rdx
 	movq $2, %rbx
 	divq %rbx
-	addq $31, %rax
 
 	# sets i,j to 0, half of the screen
-	movq $0, %r13
+	movq $-2, %r13
+	subq $5, %rax
 	movq %rax, %r14
 
-	# loads the first block intro r15
-	movq blocks, %r15
-	movq block_order, %rax
+	# loads the first block into r15
+	movq $blocks, %r15
+	movzb block_order, %rax
+	#movq $0, %rax
 	shlq $3, %rax
+	#addq $8, %r15
 	addq %rax, %r15
+	movq (%r15), %r15
 	# r13 is row, r14 is column
+	
+	movq $0, %r12 # now we start dropping it
 
 continue_dropping:
 
 	call updateGameState
 	call drawFieldToScreen
 // finally printing the current game board
+	pushq %r12
+	pushq %r12
+	pushq %r13
+	pushq %r14
+
 	movq $0, %r12
 	movq $0, %r13
 	movq $basic_screen, %r14
@@ -318,5 +439,10 @@ loop:
 
 	jmp loop
 loop_end:
+
+	popq %r14
+	popq %r13
+	popq %r12
+	popq %r12
 
 	ret

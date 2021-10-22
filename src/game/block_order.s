@@ -1,5 +1,5 @@
 .data
-block_order: .byte 3
+block_order: .byte 2
 			.byte 4
 			.byte 0
 			.byte 1
