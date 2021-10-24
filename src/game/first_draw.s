@@ -4,6 +4,50 @@ draw:
 	pushq %rbp
 	movq %rsp, %rbp
 
+	movq $0, %rdi
+
+	movq $tetris_width, %rbx
+	movq $tetris_width, %rax
+	subq $1, %rax
+	mulq %rbx
+	movq $tetris_window, %rsi
+	addq %rax, %rsi
+
+drawBottom:
+	cmp $tetris_width, %rdi
+	je drawBottom_end
+
+	movq $tetris_window, %rbx
+	addq %rdi, %rbx
+
+	movb $1, (%rbx)
+	movb $0x20, (%rsi)
+
+	incq %rdi
+	incq %rsi
+	jmp drawBottom
+drawBottom_end:
+
+	movq $0, %rdi
+	movq $tetris_window, %rbx
+
+drawSides:
+	cmp $tetris_width, %rdi
+	je drawSidesEnd
+
+	movb $0x20, (%rbx)
+	movq %rbx, %rax
+	addq $tetris_width_minus, %rbx
+	movb $0x20, (%rbx)
+	movq %rax, %rbx
+
+	addq $tetris_width, %rbx
+
+	incq %rdi
+	jmp drawSides
+
+drawSidesEnd:
+
 	movq $basic_screen, %rax
 	movq $2000, %rdi
 	
@@ -37,7 +81,7 @@ first_loop:
 	
 	pushq %rax # save the register
 
-	movq $tetris_width, %rsi
+	movq $tetris_width_normal, %rsi
 	addq $1, %rax
 
 draw_loop:
@@ -55,13 +99,13 @@ draw_loop_end:
 without:
 	movb $0x70, (%rax)
 	
-	movq $tetris_width, %rbx
+	movq $tetris_width_normal, %rbx
 	addq $1, %rbx
 	addq %rbx, %rax
 
 	movb $0x70, (%rax)
 
-	movq $tetris_width, %rcx
+	movq $tetris_width_normal, %rcx
 	movq $79, %rbx
 	subq %rcx, %rbx
 
