@@ -1,43 +1,3 @@
-/*
-This file is part of gamelib-x64.
-
-Copyright (C) 2014 Tim Hegeman
-
-gamelib-x64 is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-gamelib-x64 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with gamelib-x64. If not, see <http://www.gnu.org/licenses/>.
-*/
-
-.file "src/game/game.s"
-
-.global gameInit
-.global gameLoop
-
-.section .game.data
-
-.section .game.text
-
-/* Sets the blocks in basic_screen. We can change the timer by chaning gameTimer
-*
-*
-*/
-gameInit:
-	movq $gameTimer, %rdi
-	call setTimer 
-	
-	call draw # makes the basic_screen array
-
-	ret
-
 /* Calculates 2 to the power of rdi. I needed this function because I cant bishift with two registers :^(
 *@rdi the exp 
 *@rax is 2^rdi
@@ -261,6 +221,63 @@ can_move:
 	popq %rbp
 
 	ret
+
+/* Draws the block that is falling to the basic_screen
+*
+*
+*/
+drawToBasicScreen:
+	pushq %rbp
+	movq %rsp, %rbp
+
+	movq $0, %rdi
+	movq $0, %rsi
+	movq %r15, %r8
+	movq %r8, %r9
+	shrq $56, %r9 # holds the current color in the lowest byte of r9
+drawBlock:
+	cmp $7, %rdi
+	je drawBlock_end
+	
+# calculates the adress where I have to put the block
+	movq $4, %rax
+	addq %rdi, %rax
+	addq %r13, %rax # adds the x of our current position
+	movq $80, %rbx
+	mulq %rbx
+	addq %rsi, %rax
+	addq %r14, %rax # adds the y of our current position
+	addq $35, %rax
+	#movq $440, %rax
+	movq $basic_screen, %rbx
+	addq %rax, %rbx # rbx holds the adress in which I have to place the current cell
+
+	# check if the current cell is a one
+	movq $1, %rdx
+	andq %r8, %rdx
+	cmp $1, %rdx
+	jne getNextBlock # current cell is not a one
+#  now it is
+	movb %r9b, (%rbx) # moves the color to the adress
+	
+getNextBlock:
+	shrq $1, %r8 # removes the lowest bit
+
+	incq %rsi
+	cmp $8, %rsi
+	jne drawBlock
+
+	incq %rdi
+	movq $0, %rsi
+
+	jmp drawBlock
+
+drawBlock_end:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
 /** Draws the tetrisField + current block to basic_screen
 *
 *
@@ -318,51 +335,28 @@ drawLoopOne_end:
 
 # now I have to draw the current block
 	
-	movq $0, %rdi
-	movq $0, %rsi
-	movq %r15, %r8
-	movq %r8, %r9
-	shrq $56, %r9 # holds the current color in the lowest byte of r9
-	movq $0, %r11
-drawBlock:
-	cmp $7, %rdi
-	je drawBlock_end
+	pushq %r13
+	pushq %r14
+	pushq %r15
+	pushq %r15
+
+	shlq $8, %r15 # removes current color
+	shrq $8, %r15
+
+	movq $0x90, %rax
+	shlq $56, %rax
+	xorq %rax, %r15
+
+	call instantDrop
+
+	call drawToBasicScreen
 	
-# calculates the adress where I have to put the block
-	movq $4, %rax
-	addq %rdi, %rax
-	addq %r13, %rax # adds the x of our current position
-	movq $80, %rbx
-	mulq %rbx
-	addq %rsi, %rax
-	addq %r14, %rax # adds the y of our current position
-	addq $35, %rax
-	#movq $440, %rax
-	movq $basic_screen, %rbx
-	addq %rax, %rbx # rbx holds the adress in which I have to place the current cell
+	popq %r15
+	popq %r15
+	popq %r14
+	popq %r13
+	call drawToBasicScreen
 
-	# check if the current cell is a one
-	movq $1, %rdx
-	andq %r8, %rdx
-	cmp $1, %rdx
-	jne getNextBlock # current cell is not a one
-	incq %r11
-#  now it is
-	movb %r9b, (%rbx) # moves the color to the adress
-	
-getNextBlock:
-	shrq $1, %r8 # removes the lowest bit
-
-	incq %rsi
-	cmp $8, %rsi
-	jne drawBlock
-
-	incq %rdi
-	movq $0, %rsi
-
-	jmp drawBlock
-
-drawBlock_end:
 	movq %rbp, %rsp
 	popq %rbp
 	ret
@@ -421,6 +415,56 @@ saveBlockLoop_end:
 	popq %rbp
 	ret
 
+/* Shifts all lines uptill rdi
+*@param rdi show uptill which line we should shift
+*
+*/
+shiftLines:
+	pushq %rbp
+	movq %rsp, %rbp
+	decq %rdi
+
+	#TODO Remove this
+	#jmp shiftLines
+
+shiftLines_loop:
+	cmp $0, %rdi
+	je shiftLines_end
+	
+	movq %rdi, %rax
+	movq $tetris_width, %rbx
+	mulq %rbx
+	movq $tetris_window, %rbx
+	addq %rax, %rbx
+	incq %rbx
+
+	movq $1, %rsi
+shiftLines_row_loop:
+	cmp $tetris_width_minus, %rsi
+	je shiftLines_row_end
+
+	movq %rbx, %rcx
+	addq $tetris_width, %rcx
+
+	movzb (%rbx), %rax
+	movb %al, (%rcx)
+	movb $0, (%rbx)
+
+	incq %rsi
+	incq %rbx
+	incq %rcx
+
+	jmp shiftLines_row_loop
+shiftLines_row_end:
+	
+	decq %rdi
+	jmp shiftLines_loop
+shiftLines_end:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
 /* Removes all filled lines
 *
 *
@@ -430,30 +474,57 @@ removeLines:
 	movq %rsp, %rbp
 
 	movq $tetris_width_normal, %rdi
+	#TODO remove this line
+	#movq $1, %rdi
 
 removeLines_loop:
 	cmp $0, %rdi
 	je removeLines_end
 
-	movq %rdi, %rax
-	movq %tetris_width, %rbx
-	mulq %rax
+	movq %rdi, %rbx
+	movq $tetris_width, %rax
+	mulq %rbx
 	movq $tetris_window, %rbx
 	addq %rax, %rbx
 
-	movq $1, %rax
+	movq $1, %rax # indicates whether there is a hole in the row
+	movq $0, %rsi
 
-	movq $1, %rsi
 removeLines_row:
-	cmp $tetris_width_minus, %rsi
-	je removeLines_end
+	cmp $tetris_width, %rsi
+	je removeLines_row_end
 
-	
+	movzb (%rbx), %rcx
+	cmp $0, %rcx
 
+	jne notAHole
+	movq $0, %rax
+	jmp removeLines_row_end
+
+notAHole:
 	incq %rsi
+	incq %rbx
 	jmp removeLines_row
-removeLines_end:
+removeLines_row_end:
+
+	cmp $1, %rax
+
+	jne dontClear
+	
+	pushq %rdi
+	pushq %rdi
+	
+	call shiftLines
+
+	popq %rdi
+	popq %rdi
+
+	incq %rdi
+
+dontClear:
+
 	decq %rdi
+	jmp removeLines_loop
 removeLines_end:
 
 	movq %rbp, %rsp
@@ -549,11 +620,37 @@ skip_drop:
 	movq %rbp, %rsp
 	popq %rbp
 	ret
-/** the actual gameLoop. We can change the tick rate by changigng 
+
+/* Checks if we are dead 💀
 *
 *
-**/
-gameLoop:
+*/
+isDead:
+	pushq %rbp
+	movq %rsp, %rbp
+
+	call isViable
+	
+	cmp $1, %rax
+
+	je notDead
+	
+	movq $1, amDead
+
+notDead:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
+/* Normal game
+*
+*
+*/
+normalGame:
+	pushq %rbp
+	movq %rsp, %rbp
+
 	cmp $1, %r12 # should we begin dropping a new block
 	jne continue_dropping
 
@@ -586,6 +683,8 @@ start_dropping:
 	movq (%r15), %r15
 	# r13 is row, r14 is column
 	
+	call isDead
+
 	movq $0, %r12 # now we start dropping it
 
 continue_dropping:
@@ -630,4 +729,7 @@ loop_end:
 	popq %r12
 	popq %r12
 
+	movq %rbp, %rsp
+	popq %rbp
 	ret
+

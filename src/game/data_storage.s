@@ -9,5 +9,7 @@ current_tick: .quad 0
 			.skip 8
 current_block: .quad 0
 			.skip 8
+amDead: .quad 0
+		.skip 8
 .equ ticks, 30
 .equ gameTimer, 828500
