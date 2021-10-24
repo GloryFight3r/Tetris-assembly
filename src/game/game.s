@@ -261,6 +261,63 @@ can_move:
 	popq %rbp
 
 	ret
+
+/* Draws the block that is falling to the basic_screen
+*
+*
+*/
+drawToBasicScreen:
+	pushq %rbp
+	movq %rsp, %rbp
+
+	movq $0, %rdi
+	movq $0, %rsi
+	movq %r15, %r8
+	movq %r8, %r9
+	shrq $56, %r9 # holds the current color in the lowest byte of r9
+drawBlock:
+	cmp $7, %rdi
+	je drawBlock_end
+	
+# calculates the adress where I have to put the block
+	movq $4, %rax
+	addq %rdi, %rax
+	addq %r13, %rax # adds the x of our current position
+	movq $80, %rbx
+	mulq %rbx
+	addq %rsi, %rax
+	addq %r14, %rax # adds the y of our current position
+	addq $35, %rax
+	#movq $440, %rax
+	movq $basic_screen, %rbx
+	addq %rax, %rbx # rbx holds the adress in which I have to place the current cell
+
+	# check if the current cell is a one
+	movq $1, %rdx
+	andq %r8, %rdx
+	cmp $1, %rdx
+	jne getNextBlock # current cell is not a one
+#  now it is
+	movb %r9b, (%rbx) # moves the color to the adress
+	
+getNextBlock:
+	shrq $1, %r8 # removes the lowest bit
+
+	incq %rsi
+	cmp $8, %rsi
+	jne drawBlock
+
+	incq %rdi
+	movq $0, %rsi
+
+	jmp drawBlock
+
+drawBlock_end:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
 /** Draws the tetrisField + current block to basic_screen
 *
 *
@@ -318,51 +375,30 @@ drawLoopOne_end:
 
 # now I have to draw the current block
 	
-	movq $0, %rdi
-	movq $0, %rsi
-	movq %r15, %r8
-	movq %r8, %r9
-	shrq $56, %r9 # holds the current color in the lowest byte of r9
-	movq $0, %r11
-drawBlock:
-	cmp $7, %rdi
-	je drawBlock_end
+	pushq %r13
+	pushq %r14
+	pushq %r15
+	pushq %r15
+
+	shlq $8, %r15 # removes current color
+	shrq $8, %r15
+
+	movq $0x90, %rax
+	shlq $56, %rax
+	xorq %rax, %r15
+
+	call instantDrop
+
+	call drawToBasicScreen
 	
-# calculates the adress where I have to put the block
-	movq $4, %rax
-	addq %rdi, %rax
-	addq %r13, %rax # adds the x of our current position
-	movq $80, %rbx
-	mulq %rbx
-	addq %rsi, %rax
-	addq %r14, %rax # adds the y of our current position
-	addq $35, %rax
-	#movq $440, %rax
-	movq $basic_screen, %rbx
-	addq %rax, %rbx # rbx holds the adress in which I have to place the current cell
+	popq %r15
+	popq %r15
+	popq %r14
+	popq %r13
+	call drawToBasicScreen
 
-	# check if the current cell is a one
-	movq $1, %rdx
-	andq %r8, %rdx
-	cmp $1, %rdx
-	jne getNextBlock # current cell is not a one
-	incq %r11
-#  now it is
-	movb %r9b, (%rbx) # moves the color to the adress
-	
-getNextBlock:
-	shrq $1, %r8 # removes the lowest bit
 
-	incq %rsi
-	cmp $8, %rsi
-	jne drawBlock
 
-	incq %rdi
-	movq $0, %rsi
-
-	jmp drawBlock
-
-drawBlock_end:
 	movq %rbp, %rsp
 	popq %rbp
 	ret
@@ -492,13 +528,12 @@ removeLines_loop:
 	mulq %rbx
 	movq $tetris_window, %rbx
 	addq %rax, %rbx
-	incq %rbx
 
 	movq $1, %rax # indicates whether there is a hole in the row
-	movq $1, %rsi
+	movq $0, %rsi
 
 removeLines_row:
-	cmp $tetris_width_minus, %rsi
+	cmp $tetris_width, %rsi
 	je removeLines_row_end
 
 	movzb (%rbx), %rcx
@@ -525,6 +560,8 @@ removeLines_row_end:
 
 	popq %rdi
 	popq %rdi
+
+	incq %rdi
 
 dontClear:
 
