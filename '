@@ -421,56 +421,6 @@ saveBlockLoop_end:
 	popq %rbp
 	ret
 
-/* Shifts all lines uptill rdi
-*@param rdi show uptill which line we should shift
-*
-*/
-shiftLines:
-	pushq %rbp
-	movq %rsp, %rbp
-	decq %rdi
-
-	#TODO Remove this
-	#jmp shiftLines
-
-shiftLines_loop:
-	cmp $0, %rdi
-	je shiftLines_end
-	
-	movq %rdi, %rax
-	movq $tetris_width, %rbx
-	mulq %rbx
-	movq $tetris_window, %rbx
-	addq %rax, %rbx
-	incq %rbx
-
-	movq $1, %rsi
-shiftLines_row_loop:
-	cmp $tetris_width_minus, %rsi
-	je shiftLines_row_end
-
-	movq %rbx, %rcx
-	addq $tetris_width, %rcx
-
-	movzb (%rbx), %rax
-	movb %al, (%rcx)
-	movb $0, (%rbx)
-
-	incq %rsi
-	incq %rbx
-	incq %rcx
-
-	jmp shiftLines_row_loop
-shiftLines_row_end:
-	
-	decq %rdi
-	jmp shiftLines_loop
-shiftLines_end:
-
-	movq %rbp, %rsp
-	popq %rbp
-	ret
-
 /* Removes all filled lines
 *
 *
@@ -480,56 +430,30 @@ removeLines:
 	movq %rsp, %rbp
 
 	movq $tetris_width_normal, %rdi
-	#TODO remove this line
-	#movq $1, %rdi
 
 removeLines_loop:
 	cmp $0, %rdi
 	je removeLines_end
 
-	movq %rdi, %rbx
-	movq $tetris_width, %rax
-	mulq %rbx
+	movq %rdi, %rax
+	movq %tetris_width, %rbx
+	mulq %rax
 	movq $tetris_window, %rbx
 	addq %rax, %rbx
-	incq %rbx
 
-	movq $1, %rax # indicates whether there is a hole in the row
+	movq $1, %rax
+
 	movq $1, %rsi
-
 removeLines_row:
 	cmp $tetris_width_minus, %rsi
-	je removeLines_row_end
+	je removeLines_end
 
-	movzb (%rbx), %rcx
-	cmp $0, %rcx
+	
 
-	jne notAHole
-	movq $0, %rax
-	jmp removeLines_row_end
-
-notAHole:
 	incq %rsi
-	incq %rbx
 	jmp removeLines_row
-removeLines_row_end:
-
-	cmp $1, %rax
-
-	jne dontClear
-	
-	pushq %rdi
-	pushq %rdi
-	
-	call shiftLines
-
-	popq %rdi
-	popq %rdi
-
-dontClear:
-
+removeLines_end:
 	decq %rdi
-	jmp removeLines_loop
 removeLines_end:
 
 	movq %rbp, %rsp

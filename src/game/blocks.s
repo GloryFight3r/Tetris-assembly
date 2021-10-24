@@ -54,3 +54,12 @@ blocks:
 	.byte 0
 	.byte 0
 	.byte 160
+# square
+	.byte 0
+	.byte 0
+	.byte 0
+	.byte 24
+	.byte 24
+	.byte 0
+	.byte 0
+	.byte 0xE0
