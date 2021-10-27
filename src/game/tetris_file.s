@@ -537,6 +537,14 @@ removeLines_row_end:
 	mulq %rbx
 	addq %rax, current_score
 
+	# formula for ticks is starting_ticks - 2*level 
+	# might need to change it
+	movq current_level, %rax
+	movq $2, %rbx
+	mulq %rbx
+	movq $starting_ticks, %rbx
+	subq %rax, %rbx
+	movq %rbx, ticks
 
 	popq %rdi
 	popq %rdi
@@ -556,6 +564,8 @@ removeLines_end:
 	divq %rbx
 	incq %rax
 	movq %rax, current_level
+
+	
 
 	movq %rbp, %rsp
 	popq %rbp
@@ -637,7 +647,7 @@ not_down:
 not_instant_drop:
 
 	movq current_tick, %rax
-	cmp $ticks, %rax
+	cmp ticks, %rax
 	jl skip_drop
 
 	movq $-1, current_tick
@@ -683,7 +693,8 @@ isDead:
 
 	je notDead
 	
-	movq $3, game_status
+	#call cleanTetrisScreen
+	movq $2, game_status
 
 notDead:
 

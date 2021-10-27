@@ -1,12 +1,179 @@
 .global draw
 
+/* Draws a rectangle
+*@param rdi is starting adress, rsi is height, rdx is width
+*
+*/
+drawRectangle:
+	pushq %rbp
+	movq %rsp, %rbp
+
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+
+	movq $0, %rdi
+	movq $basic_screen, %rbx
+	addq -8(%rbp), %rbx
+
+drawScoreSquare:
+	cmp -24(%rbp), %rdi
+	#cmp $15, %rdi
+	je drawScoreSquare_end
+
+	movb $0x70, (%rbx)
+	
+	movq %rbx, %rcx
+	#addq $320, %rcx
+	movq -16(%rbp), %rax
+	incq %rax
+	movq $80, %rdx
+	mulq %rdx
+	addq %rax, %rcx
+
+	movb $0x70, (%rcx)
+
+	incq %rdi
+	incq %rbx
+
+	jmp drawScoreSquare
+drawScoreSquare_end:
+
+	movq $0, %rdi
+
+	movq $basic_screen, %rbx
+	addq -8(%rbp), %rbx
+	addq $80, %rbx
+
+drawSquareSide:
+	cmp -16(%rbp), %rdi
+	#cmp $3, %rdi
+	je drawSquareSide_end
+
+	movb $0x70, (%rbx)
+	addq -24(%rbp), %rbx
+	decq %rbx
+	movb $0x70, (%rbx)
+	addq $80, %rbx
+	subq -24(%rbp), %rbx
+	#subq $24, %rbx
+	incq %rbx
+#	addq $66, %rbx
+	
+	incq %rdi
+	jmp drawSquareSide
+drawSquareSide_end:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
+/* Fill rectangle
+*@param rdi is starting, rsi is height, rdx is width, rcx is symbol, r8 is color
+*
+*/
+fillRectangle:
+	pushq %rbp
+	movq %rsp, %rbp
+	
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+
+	movq $0, %rdi
+
+	movq $basic_screen_text, %rdx
+	movq $basic_screen, %rcx
+
+	addq -8(%rbp), %rdx
+	addq -8(%rbp), %rcx
+
+fillRectangle_loop:
+	cmp -16(%rbp), %rdi
+	je fillRectangle_loop_end
+
+	movq $0, %rsi
+
+	pushq %rdx
+	pushq %rcx
+
+fillRectangle_loop2:
+	cmp -24(%rbp), %rsi
+	je fillRectangle_loop2_end
+
+	# move symbol
+	movq -32(%rbp), %rax
+	movb %al, (%rdx)
+
+	# move colors
+	movq -40(%rbp), %rax
+	movb %al, (%rcx)
+	
+	incq %rsi
+	incq %rcx
+	incq %rdx
+
+	jmp fillRectangle_loop2
+fillRectangle_loop2_end:
+	
+	popq %rcx
+	popq %rdx
+	addq $80, %rcx
+	addq $80, %rdx
+
+	incq %rdi
+	jmp fillRectangle_loop
+fillRectangle_loop_end:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
+/* Draws the leaderboard section
+*
+*
+*/
+drawLeaderBoard:
+	pushq %rbp
+	movq %rsp, %rbp
+
+	movq $142, %rdi
+	movq $15, %rsi
+	movq $14, %rdx
+	call drawRectangle
+	
+	movq $leaderboard_screen, %rdi
+	movq $basic_screen_text, %rsi
+	addq $143, %rsi
+
+	movq $basic_screen, %rdx
+	addq $143, %rdx
+
+	movq $0x31, %rcx
+	call textToScreen
+
+	movq $223, %rdi
+	movq $15, %rsi
+	movq $12, %rdx
+	movq $'-', %rcx
+	movq $0x01, %r8
+	call fillRectangle
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
 /* Puts a string into the screen
-*@param rdi is the text, %rsi is starting adress, %rdx is the adress of basic_screen
+*@param rdi is the text, %rsi is starting adress, %rdx is the adress of basic_screen, %rcx is text color
 *
 */
 textToScreen:
 	pushq %rbp
 	movq %rsp, %rbp
+
+	#movq $0x14, %rcx
 
 textToScreen_loop:
 	movzb (%rdi), %rax
@@ -15,7 +182,7 @@ textToScreen_loop:
 	je textToScreen_loop_end
 
 	movb %al, (%rsi)
-	movb $0x14, (%rdx)
+	movb %cl, (%rdx)
 
 	incq %rdi
 	incq %rsi
@@ -141,11 +308,18 @@ without:
 	jmp first_loop
 first_loop_end:
 
-	movq $0, %rdi
-	movq $basic_screen, %rbx
-	addq $1529, %rbx
+#	movq $0, %rdi
+#	movq $basic_screen, %rbx
+#	addq $1529, %rbx
+	movq $1529, %rdi
+	movq $3, %rsi
+	movq $15, %rdx
 
-drawScoreSquare:
+	call drawRectangle
+
+	call drawLeaderBoard
+
+/*drawScoreSquare:
 	cmp $15, %rdi
 	je drawScoreSquare_end
 
@@ -178,31 +352,48 @@ drawSquareSide:
 
 	incq %rdi
 	jmp drawSquareSide
-drawSquareSide_end:
+drawSquareSide_end:*/
 	// types the text
 	movq $basic_screen_text, %rbx
 	movq $basic_screen, %rcx
 	addq $1610, %rbx
 	addq $1610, %rcx
-	
+
 	movq $score_screen, %rdi
 	movq %rbx, %rsi
 	movq %rcx, %rdx
+	pushq %rcx
+	pushq %rcx
+	movq $0x14, %rcx
 	call textToScreen
+	popq %rcx
+	popq %rcx
 
 	movq $level_screen, %rdi
 	addq $80, %rbx
 	addq $80, %rcx
 	movq %rbx, %rsi
 	movq %rcx, %rdx
+	pushq %rcx
+	pushq %rcx
+	movq $0x14, %rcx
 	call textToScreen
+	popq %rcx
+	popq %rcx
 
 	movq $lines_screen, %rdi
 	addq $80, %rbx
 	addq $80, %rcx
 	movq %rbx, %rsi
 	movq %rcx, %rdx
+	pushq %rcx
+	pushq %rcx
+	movq $0x14, %rcx
 	call textToScreen
+	popq %rcx
+	popq %rcx
+
+	call drawLeaderBoard
 
 	// types tetris
 	movq $0, %rax

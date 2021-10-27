@@ -33,6 +33,8 @@ along with gamelib-x64. If not, see <http://www.gnu.org/licenses/>.
 gameInit:
 	movq $gameTimer, %rdi
 	call setTimer 
+
+	movq $0, game_status
 	
 	call draw # makes the basic_screen array
 
@@ -123,20 +125,22 @@ loop_end:
 	popq %rbp
 	ret
 
+/*
+*
+*
+*/
+
 /** the actual gameLoop. We can change the tick rate by changigng 
 *
 *
 **/
 gameLoop:
-
 	movq game_status, %rax
 
 	cmp $0, %rax
 	jne notMainMenu
-	call cleanTetrisScreen
 	call mainMenu
 	jmp printScreen
-	movq $1, %rax
 
 notMainMenu:
 	cmp $1, %rax
@@ -149,11 +153,6 @@ notGameScreen:
 	call leaderBoard
 	jmp printScreen
 notLeaderBoard:
-	cmp $3, %rax
-	jne notSaveScore
-	call saveScore
-	jmp printScreen
-notSaveScore:
 #.....................
 printScreen:
 	call printBasicScreen
