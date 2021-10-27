@@ -149,20 +149,35 @@ after_isViable:
 	popq %rbp
 	ret
 /* Checks if we can go one down, and if we can we do, otherwise we should put the current block and start dropping another
-*@r13,r14 are x,y respectuflly
+*@rdi is the multiplicator for the score, r13,r14 are x,y respectuflly
 *@ret rax 0 if we cant dropOne
 */
 dropOne:
 	pushq %rbp
 	movq %rsp, %rbp
 	
+	pushq %rdi
+	pushq %rdi
+
 	incq %r13
 	call isViable
 
 	cmp $1, %rax
 	je can_drop
 	decq %r13
+	movq $0, -8(%rbp)
 can_drop:
+
+	popq %rdi
+	popq %rdi
+	pushq %rax
+	
+	movq %rdi, %rax
+	movq current_level, %rbx
+	mulq %rbx
+	#TODO Uncomment
+	addq %rax, current_score # multiplies rdi which is the multiplier by our current level and adds it to current_score
+	popq %rax
 
 	movq %rbp, %rsp
 	popq %rbp
@@ -346,7 +361,8 @@ drawLoopOne_end:
 	movq $0x90, %rax
 	shlq $56, %rax
 	xorq %rax, %r15
-
+	
+	movq $0, %rdi
 	call instantDrop
 
 	call drawToBasicScreen
@@ -515,6 +531,12 @@ removeLines_row_end:
 	pushq %rdi
 	
 	call shiftLines
+	incq current_lines
+	movq $100, %rax
+	movq current_level, %rbx
+	mulq %rbx
+	addq %rax, current_score
+
 
 	popq %rdi
 	popq %rdi
@@ -527,22 +549,45 @@ dontClear:
 	jmp removeLines_loop
 removeLines_end:
 
+	# recalculate current_level
+
+	movq current_lines, %rax
+	movq $10, %rbx
+	divq %rbx
+	incq %rax
+	movq %rax, current_level
+
 	movq %rbp, %rsp
 	popq %rbp
 	ret
 
 /* Drops the block instantly to the end
-*
+*@param rdi is the multiplier
 *
 */
 instantDrop:
 	pushq %rbp
 	movq %rsp, %rbp
 
+	pushq %rdi
+	pushq %rdi
+
 instantDrop_loop:
+	movq -8(%rbp), %rdi
 	call dropOne
 	cmp $1, %rax
+	
 	je instantDrop_loop
+
+	#movq %rax, -8(%rbp)
+
+	#movq (%rsp), %rax
+	#movq $2, %rbx
+	#mulq %rbx
+
+	#addq %rax, current_score
+
+	#movq -8(%rbp), %rax
 
 	movq %rbp, %rsp
 	popq %rbp
@@ -577,12 +622,14 @@ not_right_arrow:
 not_up:
 	cmp $0x1f, %al
 	jne not_down
+	movq $1, %rdi
 	call dropOne
 	movq $0, current_tick
 not_down:
 	cmp $0x39, %al
 	jne not_instant_drop
 
+	movq $2, %rdi
 	call instantDrop
 	movq $0, current_tick
 	jmp saveTime
@@ -593,7 +640,8 @@ not_instant_drop:
 	cmp $ticks, %rax
 	jl skip_drop
 
-	mov $-1, current_tick
+	movq $-1, current_tick
+	movq $0, %rdi
 	call dropOne
 
 	cmp $1, %rax
@@ -635,9 +683,122 @@ isDead:
 
 	je notDead
 	
-	movq $1, amDead
+	movq $3, game_status
 
 notDead:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
+/* Display the number into the provided adress
+*@param rdi is the number, rsi is the adress
+*
+*/
+numberToScreen:
+	pushq %rbp
+	movq %rsp, %rbp
+
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+
+	decq %rsp
+	movb $0x00, (%rsp)
+
+	movq $7, %rcx
+
+	#movq current_score, %rdi
+
+numberToScreen_loop:
+	cmp $0, %rcx
+	je numberToScreen_loop_end
+
+	movq $0, %rdx
+	movq %rdi, %rax
+	movq $10, %rbx
+	divq %rbx
+	
+	movq %rax, %rdi
+	addq $'0', %rdx
+	decq %rsp
+	movb %dl, (%rsp)
+
+	decq %rcx
+	jmp numberToScreen_loop
+numberToScreen_loop_end:
+
+	movq -24(%rbp), %rdx
+
+	movq %rsp, %rdi
+	#movq $score_screen, %rdi
+	call textToScreen2
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
+/* Puts a string into the screen
+*@param rdi is the text, %rsi is starting adress, %rdx is the adress of basic_screen
+*
+*/
+textToScreen2:
+	pushq %rbp
+	movq %rsp, %rbp
+
+textToScreen2_loop:
+	movzb (%rdi), %rax
+
+	cmp $0x00, %rax
+	je textToScreen2_loop_end
+
+	movb %al, (%rsi)
+	movb $0x14, (%rdx)
+
+	incq %rdi
+	incq %rsi
+	incq %rdx
+	
+	jmp textToScreen2_loop
+textToScreen2_loop_end:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
+/* Updates the scores
+*	
+*
+*/
+updateResults:
+	pushq %rbp
+	movq %rsp, %rbp
+
+	# displays the score
+	movq current_score, %rdi
+	movq $basic_screen_text, %rsi
+	movq $basic_screen, %rdx
+	addq $1616, %rsi
+	addq $1616, %rdx
+	call numberToScreen
+
+	#displays the level
+	movq current_level, %rdi
+	movq $basic_screen_text, %rsi
+	movq $basic_screen, %rdx
+	addq $1696, %rsi
+	addq $1696, %rdx
+	call numberToScreen
+
+	
+	#displays the lines
+	movq current_lines, %rdi
+	movq $basic_screen_text, %rsi
+	movq $basic_screen, %rdx
+	addq $1776, %rsi
+	addq $1776, %rdx
+	call numberToScreen
+
 
 	movq %rbp, %rsp
 	popq %rbp
@@ -690,44 +851,8 @@ start_dropping:
 continue_dropping:
 
 	call updateGameState
+	call updateResults
 	call drawFieldToScreen
-// finally printing the current game board
-	pushq %r12
-	pushq %r12
-	pushq %r13
-	pushq %r14
-
-	movq $0, %r12
-	movq $0, %r13
-	movq $basic_screen, %r14
-// 254 is ascii code for black square
-loop:
-	movq %r13, %rdi
-	movq %r12, %rsi
-	movb $0, %dl # character
-	
-	movb (%r14), %cl # color
-	incq %r14
-
-	call putChar
-
-	incq %r13
-	cmp $80, %r13
-	jne loop
-
-	incq %r12
-	movq $0, %r13
-
-	cmp $25, %r12
-	je loop_end
-
-	jmp loop
-loop_end:
-
-	popq %r14
-	popq %r13
-	popq %r12
-	popq %r12
 
 	movq %rbp, %rsp
 	popq %rbp

@@ -38,24 +38,124 @@ gameInit:
 
 	ret
 
+/* Clears tetris_window
+*
+*
+*/
+cleanTetrisScreen:
+	pushq %rbp
+	movq %rsp, %rbp
+
+	movq $tetris_width, %rax
+	movq $tetris_width, %rbx
+	mulq %rbx
+
+	movq $tetris_window, %rbx
+
+cleanTetrisWindow_loop:
+	cmp $0, %rax
+	je cleanTetrisWindow_end
+
+	movq $0, (%rbx)
+	incq %rbx
+	decq %rax
+	jmp cleanTetrisWindow_loop
+
+cleanTetrisWindow_end:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
+/** prints the basic_screen
+*
+*
+*/
+printBasicScreen:
+	pushq %rbp
+	movq %rsp, %rbp
+
+// finally printing the current game board
+	pushq %r12
+	pushq %r12
+	pushq %r13
+	pushq %r14
+	pushq %r15
+	pushq %r15
+
+	movq $0, %r12
+	movq $0, %r13
+	movq $basic_screen, %r14
+	movq $basic_screen_text, %r15
+// 254 is ascii code for black square
+loop:
+	movq %r13, %rdi
+	movq %r12, %rsi
+	movb (%r15), %dl # character
+	
+	movb (%r14), %cl # color
+	incq %r14
+	incq %r15
+
+	call putChar
+
+	incq %r13
+	cmp $80, %r13
+	jne loop
+
+	incq %r12
+	movq $0, %r13
+
+	cmp $25, %r12
+	je loop_end
+
+	jmp loop
+loop_end:
+
+	popq %r15
+	popq %r15
+	popq %r14
+	popq %r13
+	popq %r12
+	popq %r12
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
 /** the actual gameLoop. We can change the tick rate by changigng 
 *
 *
 **/
 gameLoop:
 
-	movq amDead, %rax
+	movq game_status, %rax
 
+	cmp $0, %rax
+	jne notMainMenu
+	call cleanTetrisScreen
+	call mainMenu
+	jmp printScreen
+	movq $1, %rax
+
+notMainMenu:
 	cmp $1, %rax
-	jne amNotDead
-	
-	call deadScreen
-	
-	jmp gameLoopEnd
-
-amNotDead:
+	jne notGameScreen
 	call normalGame
-
-gameLoopEnd:
+	jmp printScreen
+notGameScreen:
+	cmp $2, %rax
+	jne notLeaderBoard
+	call leaderBoard
+	jmp printScreen
+notLeaderBoard:
+	cmp $3, %rax
+	jne notSaveScore
+	call saveScore
+	jmp printScreen
+notSaveScore:
+#.....................
+printScreen:
+	call printBasicScreen
 
 	ret

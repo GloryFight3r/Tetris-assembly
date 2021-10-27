@@ -1,5 +1,33 @@
 .global draw
 
+/* Puts a string into the screen
+*@param rdi is the text, %rsi is starting adress, %rdx is the adress of basic_screen
+*
+*/
+textToScreen:
+	pushq %rbp
+	movq %rsp, %rbp
+
+textToScreen_loop:
+	movzb (%rdi), %rax
+
+	cmp $0x00, %rax
+	je textToScreen_loop_end
+
+	movb %al, (%rsi)
+	movb $0x14, (%rdx)
+
+	incq %rdi
+	incq %rsi
+	incq %rdx
+	
+	jmp textToScreen_loop
+textToScreen_loop_end:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
 draw:
 	pushq %rbp
 	movq %rsp, %rbp
@@ -112,6 +140,69 @@ without:
 	addq %rbx, %rax
 	jmp first_loop
 first_loop_end:
+
+	movq $0, %rdi
+	movq $basic_screen, %rbx
+	addq $1529, %rbx
+
+drawScoreSquare:
+	cmp $15, %rdi
+	je drawScoreSquare_end
+
+	movb $0x70, (%rbx)
+	
+	movq %rbx, %rcx
+	addq $320, %rcx
+
+	movb $0x70, (%rcx)
+
+	incq %rdi
+	incq %rbx
+
+	jmp drawScoreSquare
+drawScoreSquare_end:
+
+	movq $0, %rdi
+
+	movq $basic_screen, %rbx
+	addq $1609, %rbx
+
+drawSquareSide:
+	cmp $3, %rdi
+	je drawSquareSide_end
+
+	movb $0x70, (%rbx)
+	addq $14, %rbx
+	movb $0x70, (%rbx)
+	addq $66, %rbx
+
+	incq %rdi
+	jmp drawSquareSide
+drawSquareSide_end:
+	// types the text
+	movq $basic_screen_text, %rbx
+	movq $basic_screen, %rcx
+	addq $1610, %rbx
+	addq $1610, %rcx
+	
+	movq $score_screen, %rdi
+	movq %rbx, %rsi
+	movq %rcx, %rdx
+	call textToScreen
+
+	movq $level_screen, %rdi
+	addq $80, %rbx
+	addq $80, %rcx
+	movq %rbx, %rsi
+	movq %rcx, %rdx
+	call textToScreen
+
+	movq $lines_screen, %rdi
+	addq $80, %rbx
+	addq $80, %rcx
+	movq %rbx, %rsi
+	movq %rcx, %rdx
+	call textToScreen
 
 	// types tetris
 	movq $0, %rax
