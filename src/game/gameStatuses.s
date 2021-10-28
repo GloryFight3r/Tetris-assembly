@@ -191,6 +191,7 @@ mainMenu:
 	movq $1, current_level
 	movq $0, current_score
 	movq $0, current_lines
+	movq $3, current_clears
 
 	movq $starting_ticks, ticks
 	movq $1, game_status # start the game

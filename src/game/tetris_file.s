@@ -540,7 +540,7 @@ removeLines_row_end:
 	# formula for ticks is starting_ticks - 2*level 
 	# might need to change it
 	movq current_level, %rax
-	movq $2, %rbx
+	movq $4, %rbx
 	mulq %rbx
 	movq $starting_ticks, %rbx
 	subq %rax, %rbx
@@ -559,13 +559,20 @@ removeLines_end:
 
 	# recalculate current_level
 
+	pushq current_level
+
 	movq current_lines, %rax
 	movq $10, %rbx
 	divq %rbx
 	incq %rax
 	movq %rax, current_level
 
-	
+	popq %rax
+	cmp current_level, %rax
+	je no_power_addition
+	addq $3, current_clears
+
+no_power_addition:
 
 	movq %rbp, %rsp
 	popq %rbp
@@ -602,6 +609,47 @@ instantDrop_loop:
 	movq %rbp, %rsp
 	popq %rbp
 	ret
+
+/* Uses one power if we have ones
+*
+*
+*/
+usePower:
+	pushq %rbp
+	movq %rsp, %rbp
+
+	cmp $2, current_clears
+	jle usePower_no
+
+	call cleanTetrisScreen
+	call draw
+	call updateLeaderboard
+	subq $3, current_clears
+
+usePower_no:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+/* Skips one block
+*
+*
+*/
+skipOne:
+	pushq %rbp
+	movq %rsp, %rbp
+
+	cmp $0, current_clears
+	jle dont_skip_one
+	movq $1, %r12
+	subq $1, current_clears
+
+dont_skip_one:
+
+	movq %rbp, %rsp
+	popq %rbp
+	ret
+
 /** Called at every tick of gameLoop. I need one more register/adress_memory which dictates whether we should drop the block down
 *
 *
@@ -643,8 +691,20 @@ not_down:
 	call instantDrop
 	movq $0, current_tick
 	jmp saveTime
-
 not_instant_drop:
+	cmp $0x2e, %al
+	jne not_usePower
+	call usePower
+	movq $0, current_tick
+	//jmp saveTime
+not_usePower:
+	cmp $0x2c, %al
+	jne not_skip_one
+	call skipOne
+	movq $0, current_tick
+	jmp just_end
+
+not_skip_one:
 
 	movq current_tick, %rax
 	cmp ticks, %rax
@@ -666,6 +726,7 @@ saveTime:
 	movq $1, %r12
 	movq $0, current_tick
 	
+just_end:
 	movq %rbp, %rsp
 	popq %rbp
 
@@ -808,6 +869,14 @@ updateResults:
 	movq $basic_screen, %rdx
 	addq $1776, %rsi
 	addq $1776, %rdx
+	call numberToScreen
+
+	#displays the clears
+	movq current_clears, %rdi
+	movq $basic_screen_text, %rsi
+	movq $basic_screen, %rdx
+	addq $1856, %rsi
+	addq $1856, %rdx
 	call numberToScreen
 
 

@@ -15,6 +15,8 @@ game_status:
 				.quad 1 # 0 is main menu, 1 is game screen, 2 is leaderboard, 3 is score save
 current_score:
 				.quad 0 # current score of the game
+current_clears:
+				.quad 3 # current score of the game
 current_level: 
 				.quad 1 # the current level, every 10 lines we level up
 current_lines: 
@@ -28,6 +30,8 @@ level_screen:
 				.asciz "Level:0000000"
 lines_screen: 
 				.asciz "Lines:0000000"
+power_screen: 
+				.asciz "Clear:0000000"
 leaderboard_screen:
 				.asciz "Leaderboard:"
 leaderboard:

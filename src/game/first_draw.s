@@ -312,7 +312,7 @@ first_loop_end:
 #	movq $basic_screen, %rbx
 #	addq $1529, %rbx
 	movq $1529, %rdi
-	movq $3, %rsi
+	movq $4, %rsi
 	movq $15, %rdx
 
 	call drawRectangle
@@ -382,6 +382,18 @@ drawSquareSide_end:*/
 	popq %rcx
 
 	movq $lines_screen, %rdi
+	addq $80, %rbx
+	addq $80, %rcx
+	movq %rbx, %rsi
+	movq %rcx, %rdx
+	pushq %rcx
+	pushq %rcx
+	movq $0x14, %rcx
+	call textToScreen
+	popq %rcx
+	popq %rcx
+
+	movq $power_screen, %rdi
 	addq $80, %rbx
 	addq $80, %rcx
 	movq %rbx, %rsi
